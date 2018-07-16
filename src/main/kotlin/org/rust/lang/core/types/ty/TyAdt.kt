@@ -13,9 +13,9 @@ import org.rust.lang.core.types.Substitution
 import org.rust.lang.core.types.infer.TypeFolder
 import org.rust.lang.core.types.infer.TypeVisitor
 import org.rust.lang.core.types.mergeFlags
-import org.rust.lang.core.types.regions.ReEarlyBound
-import org.rust.lang.core.types.regions.ReUnknown
-import org.rust.lang.core.types.regions.Region
+import org.rust.lang.core.types.region.ReEarlyBound
+import org.rust.lang.core.types.region.ReUnknown
+import org.rust.lang.core.types.region.Region
 import org.rust.lang.core.types.type
 
 /**

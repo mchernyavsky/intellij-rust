@@ -16,8 +16,8 @@ import org.rust.lang.core.types.infer.foldTyInferWith
 import org.rust.lang.core.types.infer.resolve
 import org.rust.lang.core.types.infer.substitute
 import org.rust.lang.core.types.inference
-import org.rust.lang.core.types.regions.ReEarlyBound
-import org.rust.lang.core.types.regions.Region
+import org.rust.lang.core.types.region.ReEarlyBound
+import org.rust.lang.core.types.region.Region
 import org.rust.lang.core.types.ty.*
 import org.rust.lang.core.types.type
 import org.rust.stdext.buildMap

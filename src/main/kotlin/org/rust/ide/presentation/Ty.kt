@@ -9,8 +9,8 @@ import org.rust.lang.core.psi.RsTraitItem
 import org.rust.lang.core.psi.ext.lifetimeParameters
 import org.rust.lang.core.psi.ext.typeParameters
 import org.rust.lang.core.types.BoundElement
-import org.rust.lang.core.types.regions.ReUnknown
-import org.rust.lang.core.types.regions.Region
+import org.rust.lang.core.types.region.ReUnknown
+import org.rust.lang.core.types.region.Region
 import org.rust.lang.core.types.ty.*
 
 val Ty.shortPresentableText: String get() = render(this, level = 3)

@@ -9,8 +9,8 @@ import org.rust.lang.core.psi.RsLifetimeParameter
 import org.rust.lang.core.psi.RsTypeParameter
 import org.rust.lang.core.types.infer.TypeFolder
 import org.rust.lang.core.types.infer.substitute
-import org.rust.lang.core.types.regions.ReEarlyBound
-import org.rust.lang.core.types.regions.Region
+import org.rust.lang.core.types.region.ReEarlyBound
+import org.rust.lang.core.types.region.Region
 import org.rust.lang.core.types.ty.Ty
 import org.rust.lang.core.types.ty.TyTypeParameter
 import org.rust.lang.core.types.ty.TyUnknown

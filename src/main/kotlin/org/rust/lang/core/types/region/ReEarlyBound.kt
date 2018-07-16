@@ -3,7 +3,7 @@
  * found in the LICENSE file.
  */
 
-package org.rust.lang.core.types.regions
+package org.rust.lang.core.types.region
 
 import org.rust.lang.core.psi.RsLifetimeParameter
 import org.rust.lang.core.types.HAS_RE_EARLY_BOUND_MASK

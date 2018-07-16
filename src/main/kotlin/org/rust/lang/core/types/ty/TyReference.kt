@@ -7,8 +7,8 @@ package org.rust.lang.core.types.ty
 
 import org.rust.lang.core.types.infer.TypeFolder
 import org.rust.lang.core.types.infer.TypeVisitor
-import org.rust.lang.core.types.regions.ReUnknown
-import org.rust.lang.core.types.regions.Region
+import org.rust.lang.core.types.region.ReUnknown
+import org.rust.lang.core.types.region.Region
 
 data class TyReference(
     val referenced: Ty,

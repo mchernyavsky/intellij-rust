@@ -6,8 +6,8 @@
 package org.rust.lang.core.types.infer
 
 import org.rust.lang.core.types.Substitution
-import org.rust.lang.core.types.regions.ReEarlyBound
-import org.rust.lang.core.types.regions.Region
+import org.rust.lang.core.types.region.ReEarlyBound
+import org.rust.lang.core.types.region.Region
 import org.rust.lang.core.types.ty.*
 
 interface TypeFolder {

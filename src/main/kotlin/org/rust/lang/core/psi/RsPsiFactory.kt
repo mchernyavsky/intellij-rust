@@ -16,7 +16,7 @@ import org.rust.lang.core.types.Substitution
 import org.rust.lang.core.types.emptySubstitution
 import org.rust.lang.core.types.infer.resolve
 import org.rust.lang.core.types.infer.substitute
-import org.rust.lang.core.types.regions.ReUnknown
+import org.rust.lang.core.types.region.ReUnknown
 import org.rust.lang.core.types.ty.Mutability
 import org.rust.lang.core.types.ty.Mutability.IMMUTABLE
 import org.rust.lang.core.types.ty.Mutability.MUTABLE
