@@ -12,12 +12,12 @@ import org.rust.lang.core.types.ty.*
 
 interface TypeFolder {
     fun foldTy(ty: Ty): Ty = ty
-    fun foldRe(region: Region): Region = region
+    fun foldRegion(region: Region): Region = region
 }
 
 interface TypeVisitor {
     fun visitTy(ty: Ty): Boolean = false
-    fun visitRe(region: Region): Boolean = false
+    fun visitRegion(region: Region): Boolean = false
 }
 
 /**
@@ -105,7 +105,7 @@ fun <T> TypeFoldable<T>.substitute(subst: Substitution): T =
             else -> ty
         }
 
-        override fun foldRe(region: Region): Region =
+        override fun foldRegion(region: Region): Region =
             (region as? ReEarlyBound)?.let { subst[it] } ?: region
     })
 

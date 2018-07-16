@@ -16,6 +16,6 @@ import org.rust.lang.core.types.infer.TypeVisitor
  * The name `Region` inspired by the Rust compiler.
  */
 abstract class Region(flags: TypeFlags = 0) : Kind(flags), TypeFoldable<Region> {
-    override fun superFoldWith(folder: TypeFolder): Region = folder.foldRe(this)
-    override fun superVisitWith(visitor: TypeVisitor): Boolean = visitor.visitRe(this)
+    override fun superFoldWith(folder: TypeFolder): Region = folder.foldRegion(this)
+    override fun superVisitWith(visitor: TypeVisitor): Boolean = visitor.visitRegion(this)
 }
