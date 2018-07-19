@@ -13,6 +13,7 @@ import com.intellij.psi.impl.source.PsiFileImpl
 import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.util.PsiUtilCore
+import org.rust.lang.core.psi.RsBlock
 import org.rust.lang.core.psi.RsFile
 import org.rust.lang.core.stubs.RsFileStub
 
@@ -99,3 +100,16 @@ fun PsiElement?.getNextNonCommentSibling(): PsiElement? =
 
 fun RsElement.isParentOf(child: PsiElement): Boolean =
     child.ancestors.contains(this)
+
+val RsElement.enclosingBlockOrSelf: RsBlock?
+    get() = this as? RsBlock ?: this.stubAncestorStrict()
+
+fun RsElement.getStartOffsetIn(target: RsElement): Int? {
+    var startOffset = 0
+    var current = this
+    while (current !== target) {
+        startOffset += current.startOffsetInParent
+        current = current.stubAncestorStrict() ?: return null
+    }
+    return startOffset
+}

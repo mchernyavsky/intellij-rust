@@ -10,4 +10,4 @@ package org.rust.lang.core.types.region
  * (e.g. an expression or sequence of statements) within the
  * current function.
  */
-//class ReScope(scope: Scope) : Region()
+class ReScope(scope: Scope) : Region()

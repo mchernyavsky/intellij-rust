@@ -22,6 +22,7 @@ import org.rust.lang.core.resolve.StdKnownItems
 import org.rust.lang.core.resolve.ref.*
 import org.rust.lang.core.stubs.RsStubLiteralType
 import org.rust.lang.core.types.*
+import org.rust.lang.core.types.region.Region
 import org.rust.lang.core.types.ty.*
 import org.rust.lang.core.types.ty.Mutability.IMMUTABLE
 import org.rust.lang.core.types.ty.Mutability.MUTABLE
@@ -583,6 +584,23 @@ class RsFnInferenceContext(
         } else {
             expr.inferTypeCoercableTo(returnTy)
         }
+
+    fun inferFnBodyRegions(block: RsBlock): Region {
+        val regionContext = RegionContext(this, body, body, subject, parametersEnvitonment)
+
+        if (errorsCount == 0) {
+            // regionck assumes typeck succeeded
+            regionContext.visitFnBody()
+        }
+
+        regionContext.resolveRegions()
+
+        // In this mode, we also copy the free-region-map into the
+        // tables of the enclosing fcx. In the other regionck modes
+        // (e.g., `regionck_item`), we don't have an enclosing tables.
+//        assert(tables.freeRegionMap.isEmpty())
+        tables.freeRegionMap = regionContext.outlivesEnvironment.toFreeRegionMap()
+    }
 
     private fun RsBlock.inferTypeCoercableTo(expected: Ty): Ty =
         inferType(expected, true)
