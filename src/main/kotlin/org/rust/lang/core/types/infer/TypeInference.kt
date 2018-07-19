@@ -7,6 +7,7 @@ package org.rust.lang.core.types.infer
 
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.Computable
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
@@ -22,6 +23,7 @@ import org.rust.lang.core.resolve.StdKnownItems
 import org.rust.lang.core.resolve.ref.*
 import org.rust.lang.core.stubs.RsStubLiteralType
 import org.rust.lang.core.types.*
+import org.rust.lang.core.types.infer.outlives.OutlivesBound
 import org.rust.lang.core.types.region.Region
 import org.rust.lang.core.types.ty.*
 import org.rust.lang.core.types.ty.Mutability.IMMUTABLE
@@ -547,6 +549,25 @@ class RsInferenceContext(
         }
     }
 
+    fun impliedOutlivesBounds(
+        parameterEnvironment: ParameterEnvironment,
+        body: RsBlock,
+        ty: Ty,
+        span: TextRange
+    ): List<OutlivesBound> {
+        // Sometimes when we ask what it takes for T: WF, we get back that U: WF is required; in that case, we push U
+        // onto this stack and process it next. Currently (at least) these resulting predicates are always guaranteed
+        // to be a subset of the original type, so we need not fear non-termination.
+        val wellFormedTypes = mutableListOf(ty)
+
+        val impliedBounds = mutableListOf<Any>()
+        val fulfillContext = FulfillmentContext(this, lookup)
+
+        while (true) {
+            obligations
+        }
+    }
+
     override fun toString(): String {
         return "RsInferenceContext(bindings=$bindings, exprTypes=$exprTypes)"
     }
@@ -585,13 +606,19 @@ class RsFnInferenceContext(
             expr.inferTypeCoercableTo(returnTy)
         }
 
-    fun inferFnBodyRegions(block: RsBlock): Region {
+    /**
+     * Region check a function body. Not invoked on closures, but only on the "root" fn item (in which closures may be
+     * embedded). Walks the function body and adds various add'l constraints that are needed for region inference. This
+     * is separated both to isolate "pure" region constraints from the rest of type check and because sometimes we need
+     * type inference to have completed before we can determine which constraints to add.
+     */
+    fun inferFnBodyRegions(fn: RsFunction): Region {
         val regionContext = RegionContext(this, body, body, subject, parametersEnvitonment)
 
-        if (errorsCount == 0) {
-            // regionck assumes typeck succeeded
-            regionContext.visitFnBody()
-        }
+//        if (errorsCount == 0) {
+//            // regioncheck assumes typecheck succeeded
+//            regionContext.visitFnBody(fn)
+//        }
 
         regionContext.resolveRegions()
 
@@ -599,7 +626,7 @@ class RsFnInferenceContext(
         // tables of the enclosing fcx. In the other regionck modes
         // (e.g., `regionck_item`), we don't have an enclosing tables.
 //        assert(tables.freeRegionMap.isEmpty())
-        tables.freeRegionMap = regionContext.outlivesEnvironment.toFreeRegionMap()
+//        tables.freeRegionMap = regionContext.outlivesEnvironment.freeRegionMap
     }
 
     private fun RsBlock.inferTypeCoercableTo(expected: Ty): Ty =

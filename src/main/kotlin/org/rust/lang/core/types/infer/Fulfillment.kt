@@ -9,6 +9,7 @@ import com.intellij.openapi.progress.ProgressManager
 import org.rust.lang.core.resolve.ImplLookup
 import org.rust.lang.core.resolve.SelectionResult
 import org.rust.lang.core.types.TraitRef
+import org.rust.lang.core.types.region.Region
 import org.rust.lang.core.types.ty.Ty
 import org.rust.lang.core.types.ty.TyInfer
 import org.rust.lang.core.types.ty.TyProjection
@@ -64,6 +65,12 @@ data class Obligation(val recursionDepth: Int, var predicate: Predicate): TypeFo
 data class PendingPredicateObligation(
     val obligation: Obligation,
     var stalledOn: List<Ty> = emptyList()
+)
+
+data class RegionObligation(
+    val subRegion: Region,
+    val supType: Ty,
+    val cause: ObligationCause
 )
 
 /**
