@@ -12,6 +12,7 @@ import com.intellij.execution.testframework.sm.SMCustomMessagesParsing
 import com.intellij.execution.testframework.sm.runner.OutputToGeneralTestEventsConverter
 import com.intellij.execution.testframework.sm.runner.SMTRunnerConsoleProperties
 import com.intellij.execution.testframework.sm.runner.SMTestLocator
+import com.intellij.execution.ui.ConsoleView
 
 class CargoTestConsoleProperties(
     runconfig: RunConfiguration,
@@ -29,4 +30,7 @@ class CargoTestConsoleProperties(
         testFrameworkName: String,
         consoleProperties: TestConsoleProperties
     ): OutputToGeneralTestEventsConverter = CargoTestEventsConverter(testFrameworkName, consoleProperties)
+
+    override fun createRerunFailedTestsAction(consoleView: ConsoleView): CargoRerunFailedTestsAction =
+        CargoRerunFailedTestsAction(consoleView)
 }

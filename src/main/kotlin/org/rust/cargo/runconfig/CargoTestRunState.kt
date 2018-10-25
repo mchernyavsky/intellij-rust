@@ -12,11 +12,9 @@ import com.intellij.execution.Executor
 import com.intellij.execution.configurations.RunConfiguration
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.execution.runners.ProgramRunner
-import com.intellij.execution.testframework.TestFrameworkRunningModel
 import com.intellij.execution.testframework.autotest.ToggleAutoTestAction
 import com.intellij.execution.testframework.sm.SMTestRunnerConnectionUtil
 import com.intellij.execution.testframework.sm.runner.ui.SMTRunnerConsoleView
-import com.intellij.openapi.util.Getter
 import org.rust.cargo.runconfig.command.CargoCommandConfiguration
 import org.rust.cargo.runconfig.test.CargoTestConsoleProperties
 import org.rust.cargo.toolchain.CargoCommandLine
@@ -32,17 +30,16 @@ class CargoTestRunState(
         val consoleView = SMTestRunnerConnectionUtil
             .createAndAttachConsole("Cargo Test", processHandler, consoleProperties) as SMTRunnerConsoleView
         createFilters().forEach { consoleView.addMessageFilter(it) }
+
         val executionResult = DefaultExecutionResult(consoleView, processHandler)
+
         val rerunFailedTestsAction = consoleProperties.createRerunFailedTestsAction(consoleView)
-        if (rerunFailedTestsAction != null) {
-            rerunFailedTestsAction.setModelProvider(Getter<TestFrameworkRunningModel> { consoleView.resultsViewer })
-            executionResult.setRestartActions(rerunFailedTestsAction, ToggleAutoTestAction())
-        } else {
-            executionResult.setRestartActions(ToggleAutoTestAction())
-        }
+        rerunFailedTestsAction.init(consoleView.properties)
+        rerunFailedTestsAction.setModelProvider { consoleView.resultsViewer }
+
+        executionResult.setRestartActions(rerunFailedTestsAction, ToggleAutoTestAction())
         return executionResult
     }
-
 
     override fun prepareCommandLine(): CargoCommandLine =
         commandLine.copy(additionalArguments = patchArgs(commandLine))
