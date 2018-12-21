@@ -183,9 +183,10 @@
         <runLineMarkerContributor language="Rust"
                                   implementationClass="org.rust.ide.lineMarkers.CargoTestRunLineMarkerContributor"/>
 
-        <!-- Rename Processor -->
+        <!-- Rename -->
 
         <renamePsiElementProcessor implementation="org.rust.ide.refactoring.RsRenameProcessor"/>
+        <renameHandler implementation="org.rust.ide.refactoring.RsVariableInplaceRenameHandler"/>
 
         <!-- Implement methods -->
 
