@@ -24,7 +24,7 @@ import org.rust.cargo.toolchain.CargoCommandLine
 fun CargoCommandLine.mergeWithDefault(default: CargoCommandConfiguration): CargoCommandLine =
     copy(
         backtraceMode = default.backtrace,
-        channel = default.channel,
+        toolchainName = default.toolchainName,
         environmentVariables = default.env,
         allFeatures = default.allFeatures,
         nocapture = default.nocapture

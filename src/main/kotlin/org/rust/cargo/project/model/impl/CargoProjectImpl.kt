@@ -271,9 +271,11 @@ data class CargoProjectImpl(
     private val rawWorkspace: CargoWorkspace? = null,
     private val stdlib: StandardLibrary? = null,
     override val rustcInfo: RustcInfo? = null,
-    override val workspaceStatus: CargoProject.UpdateStatus = UpdateStatus.NeedsUpdate,
-    override val stdlibStatus: CargoProject.UpdateStatus = UpdateStatus.NeedsUpdate,
-    override val rustcInfoStatus: UpdateStatus = UpdateStatus.NeedsUpdate
+    override val toolchainsList: List<String>? = null,
+    override val workspaceStatus: UpdateStatus = UpdateStatus.NeedsUpdate,
+    override val stdlibStatus: UpdateStatus = UpdateStatus.NeedsUpdate,
+    override val rustcInfoStatus: UpdateStatus = UpdateStatus.NeedsUpdate,
+    override val toolchainsListStatus: UpdateStatus = UpdateStatus.NeedsUpdate
 ) : UserDataHolderBase(), CargoProject {
 
     private val projectDirectory get() = manifest.parent
@@ -312,6 +314,7 @@ data class CargoProjectImpl(
         return refreshRustcInfo()
             .thenCompose { it.refreshStdlib() }
             .thenCompose { it.refreshWorkspace() }
+            .thenCompose { it.refreshToolchainsList() }
     }
 
     private fun refreshStdlib(): CompletableFuture<CargoProjectImpl> {
@@ -362,6 +365,21 @@ data class CargoProjectImpl(
     private fun withRustcInfo(result: TaskResult<RustcInfo>): CargoProjectImpl = when (result) {
         is TaskResult.Ok -> copy(rustcInfo = result.value, rustcInfoStatus = UpdateStatus.UpToDate)
         is TaskResult.Err -> copy(rustcInfoStatus = UpdateStatus.UpdateFailed(result.reason))
+    }
+
+    private fun refreshToolchainsList(): CompletableFuture<CargoProjectImpl> {
+        val rustup = toolchain?.rustup(projectDirectory) ?:
+        return CompletableFuture.completedFuture(copy(toolchainsListStatus = UpdateStatus.UpdateFailed(
+            "Can't update Cargo project, no Rust toolchain"
+        )))
+
+        return fetchToolchainsList(project, projectService.taskQueue, rustup)
+            .thenApply(this::withToolchainsList)
+    }
+
+    private fun withToolchainsList(result: TaskResult<List<String>>): CargoProjectImpl = when (result) {
+        is TaskResult.Ok -> copy(toolchainsList = result.value, toolchainsListStatus = UpdateStatus.UpToDate)
+        is TaskResult.Err -> copy(toolchainsListStatus = UpdateStatus.UpdateFailed(result.reason))
     }
 
     override fun toString(): String =
@@ -491,5 +509,17 @@ private fun fetchRustcInfo(
         val versions = toolchain.queryVersions()
 
         ok(RustcInfo(sysroot, versions.rustc))
+    }
+}
+
+private fun fetchToolchainsList(
+    project: Project,
+    queue: BackgroundTaskQueue,
+    rustup: Rustup
+): CompletableFuture<TaskResult<List<String>>> {
+    return runAsyncTask(project, queue, "Getting toolchains list") {
+        progress.isIndeterminate = true
+        val toolchains = rustup.listToolchains()
+        ok(toolchains)
     }
 }

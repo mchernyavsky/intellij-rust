@@ -30,7 +30,7 @@ import org.rust.cargo.project.workspace.CargoWorkspace
 import org.rust.cargo.runconfig.command.CargoCommandConfiguration
 import org.rust.cargo.runconfig.command.workingDirectory
 import org.rust.cargo.toolchain.BacktraceMode
-import org.rust.cargo.toolchain.RustChannel
+import org.rust.cargo.toolchain.RustToolchain
 import org.rust.cargo.util.CargoCommandLineEditor
 import java.awt.Dimension
 import java.nio.file.Path
@@ -51,12 +51,6 @@ class CargoCommandConfigurationEditor(private val project: Project) : SettingsEd
 
     private val backtraceMode = ComboBox<BacktraceMode>().apply {
         BacktraceMode.values()
-            .sortedBy { it.index }
-            .forEach { addItem(it) }
-    }
-    private val channelLabel = Label("C&hannel:")
-    private val channel = ComboBox<RustChannel>().apply {
-        RustChannel.values()
             .sortedBy { it.index }
             .forEach { addItem(it) }
     }
@@ -81,24 +75,27 @@ class CargoCommandConfigurationEditor(private val project: Project) : SettingsEd
 
         addItemListener {
             setWorkingDirectoryFromSelectedProject()
+            setToolchainListFromSelectedProject()
         }
     }
 
     private fun setWorkingDirectoryFromSelectedProject() {
-        val selectedProject = run {
-            val idx = cargoProject.selectedIndex
-            if (idx == -1) return
-            cargoProject.getItemAt(idx)
-        }
+        val selectedProject = selectedProject ?: return
         workingDirectory.component.text = selectedProject.workingDirectory.toString()
     }
+
+    private val selectedProject: CargoProject?
+        get() {
+            val idx = cargoProject.selectedIndex
+            return if (idx != -1) cargoProject.getItemAt(idx) else null
+        }
 
     private val environmentVariables = EnvironmentVariablesComponent()
     private val allFeatures = CheckBox("Use all features in tests", false)
     private val nocapture = CheckBox("Show stdout/stderr in tests (and disable test tool window)", false)
 
     override fun resetEditorFrom(configuration: CargoCommandConfiguration) {
-        channel.selectedIndex = configuration.channel.index
+        toolchainName.selectedItem = configuration.toolchainName
         command.text = configuration.command
         allFeatures.isSelected = configuration.allFeatures
         nocapture.isSelected = configuration.nocapture
@@ -114,11 +111,23 @@ class CargoCommandConfigurationEditor(private val project: Project) : SettingsEd
         }
     }
 
+    private val toolchainName = ComboBox<String>().apply {
+        addItem(RustToolchain.DEFAULT_NAME)
+        selectedProject?.toolchainsList?.forEach { addItem(it) }
+    }
+
+    private fun setToolchainListFromSelectedProject() {
+        toolchainName.removeAllItems()
+        toolchainName.addItem(RustToolchain.DEFAULT_NAME)
+        val selectedProject = selectedProject ?: return
+        selectedProject.toolchainsList?.forEach { toolchainName.addItem(it) }
+    }
+
     @Throws(ConfigurationException::class)
     override fun applyEditorTo(configuration: CargoCommandConfiguration) {
-        val configChannel = RustChannel.fromIndex(channel.selectedIndex)
+        val configToolchainName = toolchainName.selectedItem as? String ?: RustToolchain.DEFAULT_NAME
 
-        configuration.channel = configChannel
+        configuration.toolchainName = configToolchainName
         configuration.command = command.text
         configuration.allFeatures = allFeatures.isSelected
         configuration.nocapture = nocapture.isSelected
@@ -127,19 +136,15 @@ class CargoCommandConfigurationEditor(private val project: Project) : SettingsEd
         configuration.env = environmentVariables.envData
 
         val rustupAvailable = project.toolchain?.isRustupAvailable ?: false
-        channel.isEnabled = rustupAvailable || configChannel != RustChannel.DEFAULT
-        if (!rustupAvailable && configChannel != RustChannel.DEFAULT) {
+        toolchainName.isEnabled = rustupAvailable || configToolchainName != RustToolchain.DEFAULT_NAME
+        if (!rustupAvailable && configToolchainName != RustToolchain.DEFAULT_NAME) {
             throw ConfigurationException("Channel cannot be set explicitly because rustup is not available")
         }
     }
 
     override fun createEditor(): JComponent = panel {
-        labeledRow("&Command:", command) {
-            command(CCFlags.pushX, CCFlags.growX)
-            channelLabel.labelFor = channel
-            channelLabel()
-            channel()
-        }
+        labeledRow("&Command:", command) { command(CCFlags.pushX, CCFlags.growX) }
+        labeledRow("&Toolchain:", toolchainName) { toolchainName() }
 
         row { allFeatures() }
         row { nocapture() }

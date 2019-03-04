@@ -78,6 +78,8 @@ data class RustToolchain(val location: Path) {
         const val CARGO_LOCK = "Cargo.lock"
         const val XARGO_TOML = "Xargo.toml"
 
+        const val DEFAULT_NAME = "[default]"
+
         fun suggest(): RustToolchain? = Suggestions.all().mapNotNull {
             val candidate = RustToolchain(it.toPath().toAbsolutePath())
             if (candidate.looksLikeValidToolchain()) candidate else null

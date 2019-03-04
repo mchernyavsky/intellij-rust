@@ -126,8 +126,8 @@ class Cargo(private val cargoExecutable: Path) {
     private fun toGeneralCommandLine(commandLine: CargoCommandLine, colors: Boolean): GeneralCommandLine =
         with(patchArgs(commandLine, colors)) {
             val parameters = buildList<String> {
-                if (channel != RustChannel.DEFAULT) {
-                    add("+$channel")
+                if (toolchainName != RustToolchain.DEFAULT_NAME) {
+                    add("+$toolchainName")
                 }
                 add(command)
                 addAll(additionalArguments)

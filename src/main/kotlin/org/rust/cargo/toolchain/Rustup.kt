@@ -44,7 +44,16 @@ class Rustup(
             .execute(null)
             ?.stdoutLines
             ?.map { Component.from(it) }
-            ?: emptyList()
+            .orEmpty()
+
+    fun listToolchains(): List<String> =
+        GeneralCommandLine(rustup)
+            .withWorkDirectory(projectDirectory)
+            .withParameters("toolchain", "list")
+            .execute(null)
+            ?.stdoutLines
+            ?.map { it.substringBefore(' ') }
+            .orEmpty()
 
     fun downloadStdlib(): DownloadResult<VirtualFile> {
         val downloadProcessOutput = GeneralCommandLine(rustup)

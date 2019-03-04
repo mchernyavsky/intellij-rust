@@ -24,10 +24,15 @@ import org.rust.cargo.runconfig.CargoTestRunState
 import org.rust.cargo.runconfig.ui.CargoCommandConfigurationEditor
 import org.rust.cargo.toolchain.BacktraceMode
 import org.rust.cargo.toolchain.CargoCommandLine
-import org.rust.cargo.toolchain.RustChannel
 import org.rust.cargo.toolchain.RustToolchain
 import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.Boolean
+import kotlin.Enum
+import kotlin.IllegalArgumentException
+import kotlin.String
+import kotlin.let
+import kotlin.run
 
 /**
  * This class describes a Run Configuration.
@@ -41,7 +46,7 @@ class CargoCommandConfiguration(
 ) : LocatableConfigurationBase<RunProfileState>(project, factory, name),
     RunConfigurationWithSuppressedDefaultDebugAction {
 
-    var channel: RustChannel = RustChannel.DEFAULT
+    var toolchainName: String = RustToolchain.DEFAULT_NAME
     var command: String = "run"
     var allFeatures: Boolean = false
     var nocapture: Boolean = false
@@ -51,7 +56,7 @@ class CargoCommandConfiguration(
 
     override fun writeExternal(element: Element) {
         super.writeExternal(element)
-        element.writeEnum("channel", channel)
+        element.writeString("toolchainName", toolchainName)
         element.writeString("command", command)
         element.writeBool("allFeatures", allFeatures)
         element.writeBool("nocapture", nocapture)
@@ -66,7 +71,7 @@ class CargoCommandConfiguration(
      */
     override fun readExternal(element: Element) {
         super.readExternal(element)
-        element.readEnum<RustChannel>("channel")?.let { channel = it }
+        element.readString("toolchainName")?.let { toolchainName = it }
         element.readString("command")?.let { command = it }
         element.readBool("allFeatures")?.let { allFeatures = it }
         element.readBool("nocapture")?.let { nocapture = it }
@@ -76,7 +81,7 @@ class CargoCommandConfiguration(
     }
 
     fun setFromCmd(cmd: CargoCommandLine) {
-        channel = cmd.channel
+        toolchainName = cmd.toolchainName
         command = ParametersListUtil.join(cmd.command, *cmd.additionalArguments.toTypedArray())
         allFeatures = cmd.allFeatures
         nocapture = cmd.nocapture
@@ -137,7 +142,7 @@ class CargoCommandConfiguration(
                 workingDirectory,
                 args.drop(1),
                 backtrace,
-                channel,
+                toolchainName,
                 env,
                 allFeatures,
                 nocapture
@@ -151,8 +156,8 @@ class CargoCommandConfiguration(
             return CleanConfiguration.error("Invalid toolchain: ${toolchain.presentableLocation}")
         }
 
-        if (!toolchain.isRustupAvailable && channel != RustChannel.DEFAULT) {
-            return CleanConfiguration.error("Channel '$channel' is set explicitly with no rustup available")
+        if (!toolchain.isRustupAvailable && toolchainName != RustToolchain.DEFAULT_NAME) {
+            return CleanConfiguration.error("Toolchain '$toolchainName' is set explicitly with no rustup available")
         }
 
         return CleanConfiguration.Ok(cmd, toolchain)

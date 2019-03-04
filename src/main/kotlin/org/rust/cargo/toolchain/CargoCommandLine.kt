@@ -24,7 +24,7 @@ data class CargoCommandLine(
     val workingDirectory: Path, // Note that working directory selects Cargo project as well
     val additionalArguments: List<String> = emptyList(),
     val backtraceMode: BacktraceMode = BacktraceMode.DEFAULT,
-    val channel: RustChannel = RustChannel.DEFAULT,
+    val toolchainName: String = RustToolchain.DEFAULT_NAME,
     val environmentVariables: EnvironmentVariablesData = EnvironmentVariablesData.DEFAULT,
     val allFeatures: Boolean = false,
     val nocapture: Boolean = false
@@ -85,13 +85,13 @@ data class CargoCommandLine(
             cargoProject: CargoProject,
             command: String,
             additionalArguments: List<String> = emptyList(),
-            channel: RustChannel = RustChannel.DEFAULT
+            toolchainName: String = RustToolchain.DEFAULT_NAME
         ): CargoCommandLine {
             return CargoCommandLine(
                 command,
                 cargoProject.workingDirectory,
                 additionalArguments,
-                channel = channel
+                toolchainName = toolchainName
             )
         }
     }
