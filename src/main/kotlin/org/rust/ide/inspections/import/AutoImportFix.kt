@@ -511,6 +511,51 @@ fun ImportCandidate.import(context: RsElement) {
     insertionScope.insertUseItem(psiFactory, "$prefix${info.usePath}")
 }
 
+// Semantic signature of method is `ImportItem.canBeImported(mod: RsMod)`
+// but in our case `mod` is always same and `mod` needs only to get set of its super mods
+// so we pass `superMods` instead of `mod` for optimization
+fun QualifiedNamedItem.canBeImported(superMods: LinkedHashSet<RsMod>): ImportInfo? {
+    if (item !is RsVisible) return null
+
+    val ourSuperMods = this.superMods ?: return null
+    val parentMod = ourSuperMods.getOrNull(0) ?: return null
+
+    // try to find latest common ancestor module of `parentMod` and `mod` in module tree
+    // we need to do it because we can use direct child items of any super mod with any visibility
+    val lca = ourSuperMods.find { it in superMods }
+    val crateRelativePath = crateRelativePath ?: return null
+
+    val (shouldBePublicMods, importInfo) = if (lca == null) {
+        if (!isPublic) return null
+        val target = containingCargoTarget ?: return null
+        val externCrateMod = ourSuperMods.last()
+
+        val externCrateWithDepth = superMods.withIndex().mapNotNull { (index, superMod) ->
+            val externCrateItem = superMod.childrenOfType<RsExternCrateItem>()
+                .find { it.reference.resolve() == externCrateMod } ?: return@mapNotNull null
+            val depth = if (superMod.isCrateRoot) null else index
+            externCrateItem to depth
+        }.singleOrNull()
+
+        val (externCrateName, needInsertExternCrateItem, depth) = if (externCrateWithDepth == null) {
+            Triple(target.normName, true, null)
+        } else {
+            val (externCrateItem, depth) = externCrateWithDepth
+            Triple(externCrateItem.nameWithAlias, false, depth)
+        }
+
+        val importInfo = ImportInfo.ExternCrateImportInfo(target, externCrateName,
+            needInsertExternCrateItem, depth, crateRelativePath)
+        ourSuperMods to importInfo
+    } else {
+        // if current item is direct child of some ancestor of `mod` then it can be not public
+        if (parentMod == lca) return ImportInfo.LocalImportInfo(crateRelativePath)
+        if (!isPublic) return null
+        ourSuperMods.takeWhile { it != lca }.dropLast(1) to ImportInfo.LocalImportInfo(crateRelativePath)
+    }
+    return if (shouldBePublicMods.all { it.isPublic }) return importInfo else null
+}
+
 private fun RsMod.insertExternCrateItem(psiFactory: RsPsiFactory, crateName: String) {
     val externCrateItem = psiFactory.createExternCrateItem(crateName)
     val lastExternCrateItem = childrenOfType<RsExternCrateItem>().lastElement
