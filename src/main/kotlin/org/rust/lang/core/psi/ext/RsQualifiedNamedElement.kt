@@ -24,11 +24,12 @@ interface RsQualifiedNamedElement : RsNamedElement {
     val crateRelativePath: String?
 }
 
-val RsQualifiedNamedElement.qualifiedName: String? get() {
-    val inCratePath = crateRelativePath ?: return null
-    val cargoTarget = containingCargoTarget?.normName ?: return null
-    return "$cargoTarget$inCratePath"
-}
+val RsQualifiedNamedElement.qualifiedName: String?
+    get() {
+        val inCratePath = crateRelativePath ?: return null
+        val cargoTarget = containingCargoTarget?.normName ?: return null
+        return "$cargoTarget$inCratePath"
+    }
 
 @Suppress("DataClassPrivateConstructor")
 data class RsQualifiedName private constructor(
@@ -81,7 +82,8 @@ data class RsQualifiedName private constructor(
             // if any variant has the same `RsQualifiedName`
             result = lookupInIndex(project, RsReexportIndex.KEY) { useSpeck ->
                 if (useSpeck.isStarImport) return@lookupInIndex null
-                val candidate = useSpeck.path?.reference?.resolve() as? RsQualifiedNamedElement ?: return@lookupInIndex null
+                val candidate = useSpeck.path?.reference?.resolve() as? RsQualifiedNamedElement
+                    ?: return@lookupInIndex null
                 QualifiedNamedItem.ReexportedItem(useSpeck, candidate)
             }
         }
@@ -136,7 +138,6 @@ data class RsQualifiedName private constructor(
     }
 
     companion object {
-        
         private val LOG: Logger = Logger.getInstance(RsQualifiedName::class.java)
 
         @JvmStatic
@@ -177,13 +178,13 @@ data class RsQualifiedName private constructor(
             val type = ParentItemType.fromString(parts[0]) ?: return null
             return Item(parts[1], type)
         }
-        
+
         private fun childItem(raw: String): Item? {
             val parts = raw.split(".")
             if (parts.size != 2) return null
             val type = ChildItemType.fromString(parts[0]) ?: return null
             return Item(parts[1], type)
-        } 
+        }
 
         @JvmStatic
         fun from(element: RsQualifiedNamedElement): RsQualifiedName? {
@@ -358,7 +359,7 @@ data class RsQualifiedName private constructor(
         CRATE;
 
         override fun toString(): String = name.toLowerCase()
-        
+
         companion object {
 
             fun fromString(name: String): ParentItemType? {
@@ -389,7 +390,7 @@ data class RsQualifiedName private constructor(
         METHOD;
 
         override fun toString(): String = name.toLowerCase()
-        
+
         companion object {
             fun fromString(name: String): ChildItemType? {
                 return when (name) {
@@ -416,21 +417,23 @@ sealed class QualifiedNamedItem(val item: RsQualifiedNamedElement) {
     abstract val superMods: List<RsMod>?
     abstract val containingCargoTarget: CargoWorkspace.Target?
 
-    val parentCrateRelativePath: String? get() {
-        val path = superMods
-            ?.map { it.modName ?: return null }
-            ?.asReversed()
-            ?.drop(1)
-            ?.joinToString("::") ?: return null
-        return if (item is RsEnumVariant) item.parentEnum.name?.let { "$path::$it" } else path
-    }
+    val parentCrateRelativePath: String?
+        get() {
+            val path = superMods
+                ?.map { it.modName ?: return null }
+                ?.asReversed()
+                ?.drop(1)
+                ?.joinToString("::") ?: return null
+            return if (item is RsEnumVariant) item.parentEnum.name?.let { "$path::$it" } else path
+        }
 
-    val crateRelativePath: String? get() {
-        val name = itemName ?: return null
-        val parentPath = parentCrateRelativePath ?: return null
-        if (parentPath.isEmpty()) return name
-        return "$parentPath::$name"
-    }
+    val crateRelativePath: String?
+        get() {
+            val name = itemName ?: return null
+            val parentPath = parentCrateRelativePath ?: return null
+            if (parentPath.isEmpty()) return name
+            return "$parentPath::$name"
+        }
 
     class ExplicitItem(item: RsQualifiedNamedElement) : QualifiedNamedItem(item) {
         override val itemName: String? get() = item.name
@@ -458,11 +461,12 @@ sealed class QualifiedNamedItem(val item: RsQualifiedNamedElement) {
         item: RsQualifiedNamedElement
     ) : QualifiedNamedItem(item) {
 
-        override val superMods: List<RsMod>? get() {
-            val mods = ArrayList(explicitSuperMods)
-            mods += reexportedModItem.superMods.orEmpty()
-            return mods
-        }
+        override val superMods: List<RsMod>?
+            get() {
+                val mods = ArrayList(explicitSuperMods)
+                mods += reexportedModItem.superMods.orEmpty()
+                return mods
+            }
         override val containingCargoTarget: CargoWorkspace.Target? get() = reexportedModItem.containingCargoTarget
     }
 }
@@ -540,7 +544,7 @@ fun QualifiedNamedItem.withModuleReexports(project: Project): List<QualifiedName
                     }
                     visited -= useSpeck
                 }
-            }
+        }
         return importItems
     }
 

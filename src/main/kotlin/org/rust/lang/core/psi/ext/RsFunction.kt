@@ -23,35 +23,24 @@ import javax.swing.Icon
 
 val RsFunction.isAssocFn: Boolean get() = selfParameter == null && owner.isImplOrTrait
 
-val RsFunction.isTest: Boolean get() {
-    val stub = stub
-    return stub?.isTest ?: (queryAttributes.hasAtomAttribute("test") || queryAttributes.hasAtomAttribute("quickcheck"))
-}
+val RsFunction.isTest: Boolean
+    get() = stub?.isTest
+        ?: (queryAttributes.hasAtomAttribute("test") || queryAttributes.hasAtomAttribute("quickcheck"))
 
-val RsFunction.isBench: Boolean get() {
-    val stub = stub
-    return stub?.isBench ?: queryAttributes.hasAtomAttribute("bench")
-}
+val RsFunction.isBench: Boolean
+    get() = stub?.isBench ?: queryAttributes.hasAtomAttribute("bench")
 
-val RsFunction.isConst: Boolean get() {
-    val stub = stub
-    return stub?.isConst ?: (const != null)
-}
+val RsFunction.isConst: Boolean
+    get() = stub?.isConst ?: (const != null)
 
-val RsFunction.isExtern: Boolean get() {
-    val stub = stub
-    return stub?.isExtern ?: (abi != null)
-}
+val RsFunction.isExtern: Boolean
+    get() = stub?.isExtern ?: (abi != null)
 
-val RsFunction.isVariadic: Boolean get() {
-    val stub = stub
-    return stub?.isVariadic ?: (valueParameterList?.variadic != null)
-}
+val RsFunction.isVariadic: Boolean
+    get() = stub?.isVariadic ?: (valueParameterList?.variadic != null)
 
-val RsFunction.abiName: String? get() {
-    val stub = stub
-    return stub?.abiName ?: abi?.stringLiteral?.text
-}
+val RsFunction.abiName: String?
+    get() = stub?.abiName ?: abi?.stringLiteral?.text
 
 val RsFunction.valueParameters: List<RsValueParameter>
     get() = valueParameterList?.valueParameterList.orEmpty()
@@ -73,10 +62,11 @@ val RsFunction.title: String
             if (isAssocFn) "Associated function `$name`" else "Method `$name`"
     }
 
-val RsFunction.returnType: Ty get() {
-    val retType = retType ?: return TyUnit
-    return retType.typeReference?.type ?: TyUnknown
-}
+val RsFunction.returnType: Ty
+    get() {
+        val retType = retType ?: return TyUnit
+        return retType.typeReference?.type ?: TyUnknown
+    }
 
 val RsFunction.abi: RsExternAbi? get() = externAbi ?: (parent as? RsForeignModItem)?.externAbi
 
