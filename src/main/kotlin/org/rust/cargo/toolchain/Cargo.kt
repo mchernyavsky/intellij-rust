@@ -12,9 +12,7 @@ import com.intellij.execution.configuration.EnvironmentVariablesData
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.ProcessListener
 import com.intellij.execution.process.ProcessOutput
-import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -23,13 +21,10 @@ import com.intellij.util.net.HttpConfigurable
 import org.jetbrains.annotations.TestOnly
 import org.rust.cargo.CargoConstants.RUST_BACTRACE_ENV_VAR
 import org.rust.cargo.project.settings.rustSettings
-import org.rust.cargo.project.settings.toolchain
 import org.rust.cargo.project.workspace.CargoWorkspace
 import org.rust.cargo.toolchain.Rustup.Companion.checkNeedInstallClippy
 import org.rust.cargo.toolchain.impl.CargoMetadata
 import org.rust.cargo.util.DownloadResult
-import org.rust.ide.actions.InstallCargoPackageAction
-import org.rust.ide.notifications.showBalloon
 import org.rust.openapiext.*
 import org.rust.stdext.buildList
 import java.io.File
@@ -239,45 +234,6 @@ class Cargo(private val cargoExecutable: Path) {
             }
             environmentVariables.configureCommandLine(cmdLine, true)
             return cmdLine
-        }
-
-        fun checkNeedInstallRustfilt(project: Project): Boolean =
-            checkNeedInstallPackage(
-                project,
-                "rustfilt",
-                NotificationType.WARNING,
-                "It may lead to incorrect function names and <code>Jump to Source</code> may not work"
-            )
-
-        @Suppress("SameParameterValue")
-        private fun checkNeedInstallPackage(
-            project: Project,
-            packageName: String,
-            notificationType: NotificationType,
-            message: String? = null
-        ): Boolean {
-            fun isNotInstalled(): Boolean {
-                val cargo = project.toolchain?.rawCargo() ?: return false
-                val installed = cargo.listPackages().any { it.startsWith(packageName) }
-                return !installed
-            }
-
-            val needInstall = if (ApplicationManager.getApplication().isDispatchThread) {
-                project.computeWithCancelableProgress("Checking if $packageName is installed...", ::isNotInstalled)
-            } else {
-                isNotInstalled()
-            }
-
-            if (needInstall) {
-                project.showBalloon(
-                    "<code>$packageName</code> is not installed",
-                    message ?: "",
-                    notificationType,
-                    InstallCargoPackageAction(packageName)
-                )
-            }
-
-            return needInstall
         }
     }
 }

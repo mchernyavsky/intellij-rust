@@ -17,16 +17,13 @@ import com.intellij.profiler.dtrace.DTraceProfilerProcessBase
 import com.intellij.profiler.dtrace.FullDumpParser
 import com.intellij.profiler.dtrace.SimpleProfilerSettingsState
 import com.intellij.profiler.dtrace.cpuProfilerScript
-import com.intellij.profiler.model.NativeCall
 import com.intellij.profiler.model.NativeThread
 import com.intellij.profiler.model.ThreadInfo
 import com.intellij.profiler.sudo.SudoProcessHandler
 import com.intellij.profiler.ui.flamechart.NativeCallChartNodeRenderer
 import com.intellij.util.xmlb.XmlSerializer
 import org.jetbrains.concurrency.Promise
-import org.rust.cargo.toolchain.Cargo
 import org.rust.clion.profiler.RsCachingStackElementReader
-import java.io.IOException
 
 
 class RsDTraceProfilerProcess private constructor(
@@ -47,47 +44,27 @@ class RsDTraceProfilerProcess private constructor(
             CollapsedProfilerDumpWriter(builder, targetProcess.fullName, attachedTimestamp, { it.fullName() }, { it.name })
         )
 
-    override fun postProcessData(builder: DummyFlameChartBuilder<ThreadInfo, BaseCallStackElement>): DummyFlameChartBuilder<ThreadInfo, BaseCallStackElement> {
-        readIndicator.checkCanceled()
-
-        val pb = ProcessBuilder("rustfilt")
-        val process = try {
-            pb.start()
-        } catch (e: IOException) {
-            return builder
-        }
-
-        val writer = process.outputStream.bufferedWriter()
-        val reader = process.inputStream.bufferedReader()
-
-        return try {
-            builder.mapTreeElements {
-                if (it is RsDTraceNavigatableNativeCall) {
-                    val fullName = it.fullName()
-                    writer.write(fullName + "\n")
-                    writer.flush()
-
-                    val demangledName = reader.readLine()
-                    if (demangledName != null) {
-                        val library = demangledName.substringBeforeLast('`')
-                        val qualifiedMethod = demangledName.substringAfterLast('`')
-                        val path = qualifiedMethod.substringBeforeLast("::")
-                        val method = qualifiedMethod.substringAfterLast("::")
-                        val nativeCall = NativeCall(library, path, method)
-                        RsDTraceNavigatableNativeCall(nativeCall)
-                    } else {
-                        it
-                    }
-                } else {
-                    it
-                }
-            }
-        } catch (e: IOException) {
-            builder
-        } finally {
-            process.destroy()
-        }
-    }
+    override fun postProcessData(
+        builder: DummyFlameChartBuilder<ThreadInfo, BaseCallStackElement>
+    ): DummyFlameChartBuilder<ThreadInfo, BaseCallStackElement> = builder
+//        builder.mapTreeElements {
+//            if (it is RsDTraceNavigatableNativeCall) {
+//                val fullName = it.fullName()
+//                val demangledName = RsDemangled.demangle(fullName)
+//                if (demangledName != null) {
+//                    val library = demangledName.substringBeforeLast('`')
+//                    val qualifiedMethod = demangledName.substringAfterLast('`')
+//                    val path = qualifiedMethod.substringBeforeLast("::")
+//                    val method = qualifiedMethod.substringAfterLast("::")
+//                    val nativeCall = NativeCall(library, path, method)
+//                    RsDTraceNavigatableNativeCall(nativeCall)
+//                } else {
+//                    it
+//                }
+//            } else {
+//                it
+//            }
+//        }
 
     companion object {
         fun attach(
@@ -103,8 +80,6 @@ class RsDTraceProfilerProcess private constructor(
             val element = XmlSerializer.serialize(settings)
             val settingsCopy = XmlSerializer.deserialize(element, SimpleProfilerSettingsState::class.java)
             settingsCopy.defaultCmdArgs.add("-xmangled")
-
-            Cargo.checkNeedInstallRustfilt(project)
 
             return DTraceProfilerProcessBase.attachBase(
                 targetProcess,
