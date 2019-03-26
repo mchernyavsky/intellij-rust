@@ -17,12 +17,14 @@ import com.intellij.profiler.dtrace.DTraceProfilerProcessBase
 import com.intellij.profiler.dtrace.FullDumpParser
 import com.intellij.profiler.dtrace.SimpleProfilerSettingsState
 import com.intellij.profiler.dtrace.cpuProfilerScript
+import com.intellij.profiler.model.NativeCall
 import com.intellij.profiler.model.NativeThread
 import com.intellij.profiler.model.ThreadInfo
 import com.intellij.profiler.sudo.SudoProcessHandler
 import com.intellij.profiler.ui.flamechart.NativeCallChartNodeRenderer
 import com.intellij.util.xmlb.XmlSerializer
 import org.jetbrains.concurrency.Promise
+import org.rust.clion.RsDemangler
 import org.rust.clion.profiler.RsCachingStackElementReader
 
 
@@ -46,25 +48,25 @@ class RsDTraceProfilerProcess private constructor(
 
     override fun postProcessData(
         builder: DummyFlameChartBuilder<ThreadInfo, BaseCallStackElement>
-    ): DummyFlameChartBuilder<ThreadInfo, BaseCallStackElement> = builder
-//        builder.mapTreeElements {
-//            if (it is RsDTraceNavigatableNativeCall) {
-//                val fullName = it.fullName()
-//                val demangledName = RsDemangled.demangle(fullName)
-//                if (demangledName != null) {
-//                    val library = demangledName.substringBeforeLast('`')
-//                    val qualifiedMethod = demangledName.substringAfterLast('`')
-//                    val path = qualifiedMethod.substringBeforeLast("::")
-//                    val method = qualifiedMethod.substringAfterLast("::")
-//                    val nativeCall = NativeCall(library, path, method)
-//                    RsDTraceNavigatableNativeCall(nativeCall)
-//                } else {
-//                    it
-//                }
-//            } else {
-//                it
-//            }
-//        }
+    ): DummyFlameChartBuilder<ThreadInfo, BaseCallStackElement> =
+        builder.mapTreeElements {
+            if (it is RsDTraceNavigatableNativeCall) {
+                val fullName = it.fullName()
+                val demangledName = RsDemangler.tryDemangle(fullName)?.toString()
+                if (demangledName != null) {
+                    val library = demangledName.substringBeforeLast('`')
+                    val qualifiedMethod = demangledName.substringAfterLast('`')
+                    val path = qualifiedMethod.substringBeforeLast("::")
+                    val method = qualifiedMethod.substringAfterLast("::")
+                    val nativeCall = NativeCall(library, path, method)
+                    RsDTraceNavigatableNativeCall(nativeCall)
+                } else {
+                    it
+                }
+            } else {
+                it
+            }
+        }
 
     companion object {
         fun attach(
