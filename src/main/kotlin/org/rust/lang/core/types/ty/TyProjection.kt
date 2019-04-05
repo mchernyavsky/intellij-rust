@@ -52,7 +52,7 @@ data class TyProjection private constructor(
         TyProjection(type.foldWith(folder), trait.foldWith(folder), target)
 
     override fun superVisitWith(visitor: TypeVisitor): Boolean =
-        type.visitWith(visitor)
+        type.visitWith(visitor) || trait.visitWith(visitor)
 
     companion object {
         fun valueOf(type: Ty, target: RsTypeAlias): TyProjection = TyProjection(

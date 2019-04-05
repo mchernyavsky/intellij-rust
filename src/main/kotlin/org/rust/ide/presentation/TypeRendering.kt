@@ -6,9 +6,9 @@
 package org.rust.ide.presentation
 
 import org.rust.lang.core.psi.RsTraitItem
-import org.rust.lang.core.psi.ext.lifetimeParameters
-import org.rust.lang.core.psi.ext.typeParameters
+import org.rust.lang.core.psi.ext.*
 import org.rust.lang.core.types.BoundElement
+import org.rust.lang.core.types.infer.TypeVisitor
 import org.rust.lang.core.types.regions.ReEarlyBound
 import org.rust.lang.core.types.regions.ReStatic
 import org.rust.lang.core.types.regions.ReUnknown
@@ -19,22 +19,53 @@ import org.rust.stdext.withPrevious
 private const val MAX_SHORT_TYPE_LEN = 50
 
 val Ty.shortPresentableText: String
-    get() = generateSequence(1) { it + 1 }
-        .map { TypeRenderer.SHORT.render(this, level = it) }
-        .withPrevious()
-        .takeWhile { (cur, prev) ->
-            cur != prev && (prev == null || cur.length <= MAX_SHORT_TYPE_LEN)
-        }.last().first
+    get() {
+        val typeRenderer = TypeRenderer.createShort(collectAmbiguousNames())
+        return generateSequence(1) { it + 1 }
+            .map { typeRenderer.render(this, level = it) }
+            .withPrevious()
+            .takeWhile { (cur, prev) ->
+                cur != prev && (prev == null || cur.length <= MAX_SHORT_TYPE_LEN)
+            }.last().first
+    }
 
 val Ty.insertionSafeText: String
-    get() = TypeRenderer.INSERTION_SAFE.render(this)
+    get() = TypeRenderer.createInsertionSafe(collectAmbiguousNames()).render(this)
 
 val Ty.insertionSafeTextWithLifetimes: String
-    get() = TypeRenderer.INSERTION_SAFE_WITH_LIFETIMES.render(this)
+    get() = TypeRenderer.createInsertionSafeWithLifetimes(collectAmbiguousNames()).render(this)
 
-fun tyToString(ty: Ty): String = TypeRenderer.DEFAULT.render(ty)
+fun tyToString(ty: Ty, ambiguousNames: Set<String> = ty.collectAmbiguousNames()): String =
+    TypeRenderer.createDefault(ambiguousNames).render(ty)
 
-fun tyToStringWithoutTypeArgs(ty: Ty): String = TypeRenderer.DEFAULT_WITHOUT_TYPE_ARGUMENTS.render(ty)
+fun tyToStringWithoutTypeArgs(ty: Ty, ambiguousNames: Set<String> = ty.collectAmbiguousNames()): String =
+    TypeRenderer.createDefaultWithoutTypeArguments(ambiguousNames).render(ty)
+
+fun Ty.collectAmbiguousNames(): Set<String> {
+    val namedElements = hashSetOf<RsNamedElement>()
+    visitWith(object : TypeVisitor {
+        override fun visitTy(ty: Ty): Boolean {
+            when (ty) {
+                is TyAdt ->
+                    namedElements.add(ty.item)
+                is TyAnon ->
+                    namedElements.addAll(ty.traits.map { it.element })
+                is TyTraitObject ->
+                    namedElements.add(ty.trait.element)
+                is TyProjection -> {
+                    namedElements.add(ty.trait.element)
+                    namedElements.add(ty.target)
+                }
+            }
+            return ty.superVisitWith(this)
+        }
+    })
+    return namedElements.asSequence()
+        .groupBy { it.name }
+        .filter { (_, element) -> element.size > 1 }
+        .mapNotNull { (name, _) -> name }
+        .toHashSet()
+}
 
 private data class TypeRenderer(
     val unknown: String = "<unknown>",
@@ -43,7 +74,8 @@ private data class TypeRenderer(
     val integer: String = "{integer}",
     val float: String = "{float}",
     val includeTypeArguments: Boolean = true,
-    val includeLifetimeArguments: Boolean = false
+    val includeLifetimeArguments: Boolean = false,
+    val ambiguousNames: Set<String> = emptySet()
 ) {
     fun render(ty: Ty): String = render(ty, Int.MAX_VALUE)
 
@@ -99,7 +131,7 @@ private data class TypeRenderer(
             }
             is TyTypeParameter -> ty.name ?: anonymous
             is TyProjection -> buildString {
-                val traitName = ty.trait.element.name ?: return anonymous
+                val traitName = ty.trait.element.unambiguousName ?: return anonymous
                 if (ty.type.isSelf) {
                     append("Self::")
                 } else {
@@ -110,12 +142,12 @@ private data class TypeRenderer(
                     if (includeTypeArguments) append(formatTraitGenerics(ty.trait, render, false))
                     append(">::")
                 }
-                append(ty.target.name)
+                append(ty.target.unambiguousName)
             }
             is TyTraitObject -> formatTrait(ty.trait, render)
             is TyAnon -> ty.traits.joinToString("+", "impl ") { formatTrait(it, render) }
             is TyAdt -> buildString {
-                append(ty.item.name ?: return anonymous)
+                append(ty.item.unambiguousName ?: return anonymous)
                 if (includeTypeArguments) append(formatGenerics(ty, render))
             }
             is TyInfer -> when (ty) {
@@ -132,7 +164,7 @@ private data class TypeRenderer(
         if (region == ReUnknown) unknownLifetime else region.toString()
 
     private fun formatTrait(trait: BoundElement<RsTraitItem>, render: (Ty) -> String): String = buildString {
-        append(trait.element.name ?: return anonymous)
+        append(trait.element.unambiguousName ?: return anonymous)
         if (includeTypeArguments) append(formatTraitGenerics(trait, render))
     }
 
@@ -160,7 +192,7 @@ private data class TypeRenderer(
         }
         val assoc = if (includeAssoc) {
             trait.element.associatedTypesTransitively.mapNotNull {
-                val name = it.name ?: return@mapNotNull null
+                val name = it.unambiguousName ?: return@mapNotNull null
                 name + "=" + render(trait.assoc[it] ?: TyUnknown)
             }
         } else {
@@ -170,17 +202,35 @@ private data class TypeRenderer(
         return if (visibleTypes.isEmpty()) "" else visibleTypes.joinToString(", ", "<", ">")
     }
 
+    private val RsNamedElement.unambiguousName: String?
+        get() {
+            val name = name ?: return null
+            if (name in ambiguousNames && this is RsQualifiedNamedElement) {
+                return qualifiedName ?: name
+            }
+            return name
+        }
+
     companion object {
-        val DEFAULT: TypeRenderer = TypeRenderer()
-        val SHORT: TypeRenderer = TypeRenderer(unknown = "?")
-        val DEFAULT_WITHOUT_TYPE_ARGUMENTS: TypeRenderer = TypeRenderer(includeTypeArguments = false)
-        val INSERTION_SAFE: TypeRenderer = TypeRenderer(
-            unknown = "_",
-            anonymous = "_",
-            unknownLifetime = "'_",
-            integer = "_",
-            float = "_"
-        )
-        val INSERTION_SAFE_WITH_LIFETIMES: TypeRenderer = INSERTION_SAFE.copy(includeLifetimeArguments = true)
+        fun createDefault(ambiguousNames: Set<String> = emptySet()): TypeRenderer =
+            TypeRenderer(ambiguousNames = ambiguousNames)
+
+        fun createShort(ambiguousNames: Set<String> = emptySet()): TypeRenderer =
+            createDefault(ambiguousNames).copy(unknown = "?")
+
+        fun createDefaultWithoutTypeArguments(ambiguousNames: Set<String> = emptySet()): TypeRenderer =
+            createDefault(ambiguousNames).copy(includeTypeArguments = false)
+
+        fun createInsertionSafe(ambiguousNames: Set<String> = emptySet()): TypeRenderer =
+            createDefault(ambiguousNames).copy(
+                unknown = "_",
+                anonymous = "_",
+                unknownLifetime = "'_",
+                integer = "_",
+                float = "_"
+            )
+
+        fun createInsertionSafeWithLifetimes(ambiguousNames: Set<String> = emptySet()): TypeRenderer =
+            createInsertionSafe(ambiguousNames).copy(includeLifetimeArguments = true)
     }
 }

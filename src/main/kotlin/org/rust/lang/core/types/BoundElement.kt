@@ -51,8 +51,10 @@ data class BoundElement<out E : RsElement>(
             assoc.mapValues { (_, value) -> value.foldWith(folder) }
         )
 
-    override fun superVisitWith(visitor: TypeVisitor): Boolean = assoc.values.any { visitor.visitTy(it) } ||
-        subst.types.any { visitor.visitTy(it) } && subst.regions.any { visitor.visitRegion(it) }
+    override fun superVisitWith(visitor: TypeVisitor): Boolean =
+        assoc.values.any { it.visitWith(visitor) }
+            || subst.types.any { it.visitWith(visitor) }
+            && subst.regions.any { it.visitWith(visitor) }
 
 }
 

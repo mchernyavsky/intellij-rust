@@ -22,6 +22,8 @@ import org.rust.ide.inspections.RsTypeCheckInspection
 import org.rust.ide.inspections.checkMatch.Pattern
 import org.rust.ide.inspections.fixes.AddRemainingArmsFix
 import org.rust.ide.inspections.fixes.AddWildcardArmFix
+import org.rust.ide.presentation.collectAmbiguousNames
+import org.rust.ide.presentation.tyToString
 import org.rust.ide.refactoring.implementMembers.ImplementMembersFix
 import org.rust.lang.core.psi.*
 import org.rust.lang.core.psi.ext.*
@@ -62,7 +64,7 @@ sealed class RsDiagnostic(
                 fixes = buildList {
                     if (expectedTy is TyNumeric && isActualTyNumeric()) {
                         add(AddAsTyFix(element, expectedTy))
-                    } else  if (element is RsElement) {
+                    } else if (element is RsElement) {
                         val items = element.knownItems
                         val lookup = ImplLookup(element.project, items)
                         if (isFromActualImplForExpected(items, lookup)) {
@@ -138,7 +140,7 @@ sealed class RsDiagnostic(
         private fun errTyOfTryFromActualImplForTy(ty: Ty, items: KnownItems, lookup: ImplLookup): Ty? {
             val fromTrait = items.TryFrom ?: return null
             val result = lookup.selectProjectionStrict(TraitRef(ty, fromTrait.withSubst(actualTy)),
-                fromTrait.associatedTypesTransitively.find { it.name == "Error"} ?: return null)
+                fromTrait.associatedTypesTransitively.find { it.name == "Error" } ?: return null)
             return result.ok()?.value
         }
 
@@ -166,7 +168,8 @@ sealed class RsDiagnostic(
             trait != null && lookup.canSelectWithDeref(TraitRef(actualTy, trait.withSubst(ty.referenced)))
 
         private fun expectedFound(expectedTy: Ty, actualTy: Ty): String {
-            return "expected `${expectedTy.escaped}`, found `${actualTy.escaped}`"
+            val ambiguousNames = TyTuple(listOf(expectedTy, actualTy)).collectAmbiguousNames()
+            return "expected `${expectedTy.toEscaped(ambiguousNames)}`, found `${actualTy.toEscaped(ambiguousNames)}`"
         }
 
         /**
@@ -200,7 +203,7 @@ sealed class RsDiagnostic(
             // for the first type X in the "actual sequence" that is also in the "expected sequence"; get the number of
             // dereferences we need to apply to get to X from `actualTy` and number of references to get to `expectedTy`
             val derefs = actualCoercionSeq.indexOfFirst { refSeqEnd = tyToExpectedRefSeq[it]; refSeqEnd != null }
-            val refs = expectedRefSeq.subList(0, refSeqEnd?: return null)
+            val refs = expectedRefSeq.subList(0, refSeqEnd ?: return null)
             // check that mutability of references would not contradict the `element`
             val isSuitableMutability = refs.isEmpty() || !refs.last().isMut || (element as RsExpr).isMutable &&
                 // covers cases like `let mut x: &T = ...`
@@ -219,7 +222,7 @@ sealed class RsDiagnostic(
         override fun prepare() = PreparedAnnotation(
             ERROR,
             E0614,
-            "type ${ty.escaped} cannot be dereferenced"
+            "type ${ty.toEscaped()} cannot be dereferenced"
         )
     }
 
@@ -976,4 +979,5 @@ private fun escapeTy(str: String): String = str
     .replace(">", "&#62;")
     .replace("&", "&amp;")
 
-private val Ty.escaped get() = escapeTy(toString())
+private fun Ty.toEscaped(ambiguousNames: Set<String> = collectAmbiguousNames()): String =
+    escapeTy(tyToString(this, ambiguousNames))
