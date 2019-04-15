@@ -607,6 +607,16 @@ data class ImportContext private constructor(
             attributes = path.stdlibAttributes,
             namespaceFilter = path.namespaceFilter(isCompletion)
         )
+
+        fun from(project: Project, element: RsElement): ImportContext = ImportContext(
+            project = project,
+            mod = element.containingMod,
+            superMods = LinkedHashSet(element.containingMod.superMods),
+            scope = RsWithMacrosScope(project, RsCargoProjectScope(project.cargoProjects, GlobalSearchScope.allScope(project))),
+            ns = RsPsiFactory.PathNamespace.TYPES,
+            attributes = element.stdlibAttributes,
+            namespaceFilter = { true }
+        )
     }
 }
 

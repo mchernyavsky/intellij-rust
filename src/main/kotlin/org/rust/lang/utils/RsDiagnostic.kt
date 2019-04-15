@@ -166,6 +166,7 @@ sealed class RsDiagnostic(
             trait != null && lookup.canSelectWithDeref(TraitRef(actualTy, trait.withSubst(ty.referenced)))
 
         private fun expectedFound(expectedTy: Ty, actualTy: Ty): String {
+            val context = hashSetOf(expectedTy, actualTy)
             return "expected `${expectedTy.escaped}`, found `${actualTy.escaped}`"
         }
 

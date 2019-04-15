@@ -27,7 +27,10 @@ import org.rust.lang.core.types.ty.Mutability.IMMUTABLE
 import org.rust.lang.core.types.ty.Mutability.MUTABLE
 import org.rust.lang.core.types.type
 
-class RsPsiFactory(private val project: Project, private val markGenerated: Boolean = true) {
+class RsPsiFactory(
+    private val project: Project,
+    private val markGenerated: Boolean = true
+) {
     fun createFile(text: CharSequence): RsFile =
         PsiFileFactory.getInstance(project)
             .createFileFromText(

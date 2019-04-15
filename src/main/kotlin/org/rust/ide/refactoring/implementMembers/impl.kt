@@ -10,19 +10,28 @@ import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
-import org.rust.ide.inspections.import.ImportCandidate
-import org.rust.ide.inspections.import.canBeImported
+import org.rust.ide.inspections.import.AutoImportFix
+import org.rust.ide.inspections.import.ImportContext
 import org.rust.ide.inspections.import.import
+import org.rust.ide.settings.RsCodeInsightSettings
 import org.rust.lang.core.macros.expandedFromRecursively
 import org.rust.lang.core.psi.*
 import org.rust.lang.core.psi.ext.*
+import org.rust.lang.core.resolve.TYPES
+import org.rust.lang.core.resolve.processNestedScopesUpwards
 import org.rust.lang.core.types.BoundElement
+import org.rust.lang.core.types.Substitution
+import org.rust.lang.core.types.emptySubstitution
+import org.rust.lang.core.types.infer.substitute
 import org.rust.lang.core.types.ty.TyAdt
+import org.rust.lang.core.types.ty.TyAnon
+import org.rust.lang.core.types.ty.TyProjection
 import org.rust.lang.core.types.ty.TyTraitObject
 import org.rust.lang.core.types.type
 import org.rust.openapiext.checkReadAccessAllowed
 import org.rust.openapiext.checkWriteAccessAllowed
 import org.rust.openapiext.checkWriteAccessNotAllowed
+import org.rust.stdext.buildSet
 
 fun generateTraitMembers(impl: RsImplItem, editor: Editor?) {
     checkWriteAccessNotAllowed()
@@ -58,44 +67,9 @@ private fun insertNewTraitMembers(
     checkWriteAccessAllowed()
     if (selected.isEmpty()) return
 
+    val (_, toImport) = findAmbiguousAndUnresolvedItems(existingMembers, selected, trait.subst)
+
     val templateImpl = RsPsiFactory(existingMembers.project).createMembers(selected, trait.subst)
-    val mod = existingMembers.containingMod
-    val superMods = LinkedHashSet(mod.superMods)
-    val importCandidates = mutableListOf<ImportCandidate>()
-    val importCandidateVisitor = object : RsVisitor() {
-        override fun visitElement(element: RsElement) = element.acceptChildren(this)
-
-        override fun visitTypeReference(o: RsTypeReference) {
-            val ty = o.type
-            val item: RsQualifiedNamedElement = when (ty) {
-                is TyAdt -> ty.item
-                is TyTraitObject -> ty.trait.element
-                else -> return
-            }
-
-            val candidate = QualifiedNamedItem.ExplicitItem(item)
-                .withModuleReexports(mod.project)
-                .mapNotNull { ImportCandidate(it, it.canBeImported(superMods) ?: return@mapNotNull null) }
-                .firstOrNull() ?: return
-
-            importCandidates.add(candidate)
-
-            visitElement(o) // type reference also can contains sub type references
-        }
-    }
-
-    // Visit the existing trait functions to determine the types that need to be imported.
-    selected.forEach { it.accept(importCandidateVisitor) }
-
-    // Determine which of the type references we found are already in scope.
-    val inScopeItems: Set<RsElement> = importCandidates
-        .mapNotNull { it.qualifiedNamedItem.item as? RsItemElement }
-        .filterInScope(existingMembers)
-        .toSet()
-
-    importCandidates
-        .filter { !inScopeItems.contains(it.qualifiedNamedItem.item) }
-        .forEach { it.import(mod) }
 
     val traitMembers = trait.element.expandedMembers
     val newMembers = templateImpl.childrenOfType<RsAbstractable>()
@@ -146,6 +120,76 @@ private fun insertNewTraitMembers(
             val whitespaces = createExtraWhitespacesAroundFunction(addedMember, next)
             existingMembers.addAfter(whitespaces, addedMember)
         }
+    }
+
+    importMissingTypes(existingMembers, toImport)
+}
+
+private data class TypeReferencesInfo(
+    val toQualify: Set<RsQualifiedNamedElement>,
+    val toImport: Set<RsQualifiedNamedElement>
+)
+
+private fun findAmbiguousAndUnresolvedItems(
+    context: RsElement,
+    selected: Collection<RsAbstractable>,
+    subst: Substitution
+): TypeReferencesInfo {
+    val rawImportSubjects = selected.flatMap { extractImportSubjectsFromTypeReferences(it, subst) }
+    val importSubjects = hashMapOf<String, MutableSet<RsQualifiedNamedElement>>()
+    for (element in rawImportSubjects) {
+        val name = element.name ?: continue
+        val group = importSubjects.getOrPut(name) { hashSetOf() }
+        group.add(element)
+    }
+
+    val toQualifiedName = hashSetOf<RsQualifiedNamedElement>()
+    processNestedScopesUpwards(context, TYPES) { entry ->
+        val group = importSubjects.remove(entry.name) ?: return@processNestedScopesUpwards false
+        group.remove(entry.element)
+        toQualifiedName.addAll(group)
+        importSubjects.isEmpty()
+    }
+
+    return TypeReferencesInfo(toQualifiedName, importSubjects.flatMap { it.value }.toSet())
+}
+
+private fun extractImportSubjectsFromTypeReferences(
+    root: RsElement,
+    subst: Substitution = emptySubstitution
+): Set<RsQualifiedNamedElement> = buildSet {
+    root.accept(object : RsVisitor() {
+        override fun visitTypeReference(reference: RsTypeReference) {
+            visitElement(reference)
+            when (val ty = reference.type.substitute(subst)) {
+                is TyAdt ->
+                    add(ty.item)
+                is TyAnon ->
+                    addAll(ty.traits.map { it.element })
+                is TyTraitObject ->
+                    add(ty.trait.element)
+                is TyProjection -> {
+                    add(ty.trait.element)
+                    add(ty.target)
+                }
+            }
+        }
+
+        override fun visitElement(element: RsElement) =
+            element.acceptChildren(this)
+    })
+}
+
+private fun importMissingTypes(element: RsElement, toImport: Set<RsQualifiedNamedElement>) {
+    if (!RsCodeInsightSettings.getInstance().importOutOfScopeItems) return
+    val context = ImportContext.from(element.project, element)
+    for (item in toImport) {
+        val name = item.name ?: continue
+        val candidates = AutoImportFix.getImportCandidates(context, name, name) {
+            !(it.item is RsMod || it.item is RsModDeclItem || it.item.parent is RsMembers)
+        }
+        val candidate = candidates.firstOrNull { it.qualifiedNamedItem.item in toImport }
+        candidate?.import(element)
     }
 }
 
