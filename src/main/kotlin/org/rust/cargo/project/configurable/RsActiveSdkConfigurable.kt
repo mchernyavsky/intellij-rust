@@ -24,6 +24,7 @@ import com.intellij.ui.ComboboxSpeedSearch
 import com.intellij.util.ui.JBUI
 import org.rust.ide.sdk.*
 import org.rust.ide.sdk.RsSdkRenderingUtils.groupModuleSdksByTypes
+import org.rust.ide.ui.RsLayoutBuilder
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.event.ItemEvent
@@ -180,6 +181,10 @@ class RsActiveSdkConfigurable private constructor(
         if (disposable != null) {
             Disposer.dispose(disposable)
         }
+    }
+
+    fun attachTo(layout: RsLayoutBuilder) = with(layout) {
+        row("Toolchain:", mainPanel)
     }
 
     companion object {

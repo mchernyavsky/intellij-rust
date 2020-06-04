@@ -14,7 +14,6 @@ import com.intellij.openapi.ui.popup.ListSeparator
 import com.intellij.openapi.ui.popup.PopupStep
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep
 import com.intellij.openapi.util.Disposer
-import com.intellij.util.NullableConsumer
 import org.rust.ide.sdk.add.RsAddSdkDialog
 import java.awt.Point
 import java.util.*
@@ -40,7 +39,7 @@ class RsSdkDetailsStep(
     override fun onChosen(selectedValue: String, finalChoice: Boolean): PopupStep<*> =
         doFinalStep { optionSelected(selectedValue) }
 
-    private fun optionSelected(selectedValue: String) {
+    private fun optionSelected(selectedValue: String?) {
         if (ALL != selectedValue && showAll != null) {
             Disposer.dispose(showAll.disposable)
         }

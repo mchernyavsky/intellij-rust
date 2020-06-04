@@ -77,7 +77,7 @@ class RsAddSdkDialog private constructor(
     }
 
     override fun createCenterPanel(): JComponent {
-        val panels = mutableListOf<RsAddSdkView>(RsAddRustupPanel())
+        val panels = mutableListOf<RsAddSdkView>()
         val extendedPanels = RsAddSdkProvider.EP_NAME.extensions
             .mapNotNull { provider ->
                 val view = provider.safeCreateView(project, module, existingSdks, context)
@@ -316,9 +316,9 @@ private fun doCreateSouthPanel(leftButtons: List<JButton>, rightButtons: List<JB
     val bag = GridBag().setDefaultInsets(insets)
     val lrButtonsPanel = NonOpaquePanel(GridBagLayout())
     val leftButtonsPanel = createButtonsPanel(leftButtons)
-    leftButtonsPanel.border = BorderFactory.createEmptyBorder(0, 0, 0, 20)  // leave some space between button groups
+    leftButtonsPanel.border = BorderFactory.createEmptyBorder(0, 0, 0, 20) // leave some space between button groups
     lrButtonsPanel.add(leftButtonsPanel, bag.next())
-    lrButtonsPanel.add(Box.createHorizontalGlue(), bag.next().weightx(1.0).fillCellHorizontally())   // left strut
+    lrButtonsPanel.add(Box.createHorizontalGlue(), bag.next().weightx(1.0).fillCellHorizontally()) // left strut
     val buttonsPanel = createButtonsPanel(rightButtons)
     lrButtonsPanel.add(buttonsPanel, bag.next())
     panel.add(lrButtonsPanel, BorderLayout.CENTER)
