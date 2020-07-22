@@ -264,7 +264,7 @@ class Cargo(private val cargoExecutable: Path) {
         }
 
         val useClippy = settings.externalLinter == ExternalLinter.CLIPPY
-            && !checkNeedInstallClippy(project, cargoProjectDirectory)
+            && !checkNeedInstallClippy(project)
         val checkCommand = if (useClippy) "clippy" else "check"
         return CargoCommandLine(checkCommand, cargoProjectDirectory, arguments)
             .execute(project, owner, ignoreExitCode = true)

@@ -11,23 +11,23 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.DumbAwareAction
-import org.rust.cargo.project.settings.toolchain
+import org.rust.cargo.project.settings.rustup
 import org.rust.cargo.util.DownloadResult
 import org.rust.ide.notifications.showBalloon
-import java.nio.file.Path
 
 class InstallComponentAction(
-    private val projectDirectory: Path,
+    private val toolchainName: String,
     private val componentName: String
 ) : DumbAwareAction("Install") {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val rustup = project.toolchain?.rustup(projectDirectory) ?: return
+        val rustup = project.rustup ?: return
         Notification.get(e).expire()
         object : Task.Backgroundable(project, "Installing $componentName...") {
             override fun shouldStartInBackground(): Boolean = false
             override fun run(indicator: ProgressIndicator) {
-                val result = rustup.downloadComponent(myProject, componentName) as? DownloadResult.Err ?: return
+                val result = rustup.downloadComponent(myProject, toolchainName, componentName)
+                if (result !is DownloadResult.Err) return
                 myProject.showBalloon(result.error, NotificationType.ERROR)
             }
         }.queue()

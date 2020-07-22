@@ -6,6 +6,7 @@
 package org.rust.ide.notifications
 
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.fileEditor.FileEditor
@@ -19,12 +20,11 @@ import org.rust.cargo.project.model.CargoProject
 import org.rust.cargo.project.model.CargoProjectsService
 import org.rust.cargo.project.model.cargoProjects
 import org.rust.cargo.project.model.guessAndSetupRustProject
-import org.rust.cargo.project.settings.RustProjectSettingsService
+import org.rust.cargo.project.settings.*
 import org.rust.cargo.project.settings.RustProjectSettingsService.RustSettingsChangedEvent
 import org.rust.cargo.project.settings.RustProjectSettingsService.RustSettingsListener
-import org.rust.cargo.project.settings.rustSettings
-import org.rust.cargo.project.settings.toolchain
 import org.rust.cargo.project.workspace.StandardLibrary
+import org.rust.ide.sdk.RsSdkAdditionalData
 import org.rust.lang.core.psi.isNotRustFile
 
 /**
@@ -79,7 +79,8 @@ class MissingToolchainNotificationProvider(project: Project) : RsNotificationPro
             // If rustup is not null, the WorkspaceService will use it
             // to add stdlib automatically. This happens asynchronously,
             // so we can't reliably say here if that succeeded or not.
-            if (!toolchain.isRustupAvailable) return createLibraryAttachingPanel(file)
+            val available = project.isRustupAvailable
+            if (!available) return createLibraryAttachingPanel(file)
         }
 
         return null
@@ -87,7 +88,7 @@ class MissingToolchainNotificationProvider(project: Project) : RsNotificationPro
 
     private fun createBadToolchainPanel(file: VirtualFile): RsEditorNotificationPanel =
         RsEditorNotificationPanel(NO_RUST_TOOLCHAIN).apply {
-            setText("No Rust toolchain configured")
+            text = "No Rust toolchain configured"
             createActionLabel("Setup toolchain") {
                 project.rustSettings.configureToolchain()
             }
@@ -99,12 +100,18 @@ class MissingToolchainNotificationProvider(project: Project) : RsNotificationPro
 
     private fun createLibraryAttachingPanel(file: VirtualFile): RsEditorNotificationPanel =
         RsEditorNotificationPanel(NO_ATTACHED_STDLIB).apply {
-            setText("Can not attach stdlib sources automatically without rustup.")
+            text = "Can not attach stdlib sources automatically without rustup"
             createActionLabel("Attach manually") {
                 val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
                 val stdlib = FileChooser.chooseFile(descriptor, this, project, null) ?: return@createActionLabel
                 if (StandardLibrary.fromFile(stdlib) != null) {
-                    project.rustSettings.modify { it.explicitPathToStdlib = stdlib.path }
+                    val sdk = project.rustSdk
+                    if (sdk != null) {
+                        val modificator = sdk.sdkModificator
+                        val data = modificator.sdkAdditionalData as? RsSdkAdditionalData
+                        data?.stdlibPath = stdlib.path
+                        runWriteAction(modificator::commitChanges)
+                    }
                 } else {
                     project.showBalloon(
                         "Invalid Rust standard library source path: `${stdlib.presentableUrl}`",

@@ -45,11 +45,9 @@ import org.rust.cargo.project.model.CargoProject.UpdateStatus
 import org.rust.cargo.project.model.CargoProjectsService
 import org.rust.cargo.project.model.RustcInfo
 import org.rust.cargo.project.model.setup
-import org.rust.cargo.project.settings.RustProjectSettingsService
+import org.rust.cargo.project.settings.*
 import org.rust.cargo.project.settings.RustProjectSettingsService.RustSettingsChangedEvent
 import org.rust.cargo.project.settings.RustProjectSettingsService.RustSettingsListener
-import org.rust.cargo.project.settings.rustSettings
-import org.rust.cargo.project.settings.toolchain
 import org.rust.cargo.project.toolwindow.CargoToolWindow.Companion.initializeToolWindow
 import org.rust.cargo.project.workspace.CargoWorkspace
 import org.rust.cargo.project.workspace.PackageOrigin
@@ -60,6 +58,7 @@ import org.rust.cargo.toolchain.Rustup
 import org.rust.cargo.util.AutoInjectedCrates
 import org.rust.cargo.util.DownloadResult
 import org.rust.ide.notifications.showBalloon
+import org.rust.ide.sdk.rustData
 import org.rust.lang.RsFileType
 import org.rust.lang.core.macros.macroExpansionManager
 import org.rust.openapiext.*
@@ -378,9 +377,9 @@ data class CargoProjectImpl(
             }
         }
 
-        val rustup = toolchain?.rustup(workingDirectory)
+        val rustup = project.rustup
         if (rustup == null) {
-            val explicitPath = project.rustSettings.explicitPathToStdlib
+            val explicitPath = project.rustSdk?.rustData?.stdlibPath
             val lib = explicitPath?.let { StandardLibrary.fromPath(it) }
             val result = when {
                 explicitPath == null -> TaskResult.Err<StandardLibrary>("no explicit stdlib or rustup found")
@@ -539,9 +538,10 @@ private fun fetchStdlib(
     project: Project,
     rustup: Rustup
 ): CompletableFuture<TaskResult<StandardLibrary>> {
+    val toolchainName = checkNotNull(project.toolchain?.name) { "Toolchain name can't be null" }
     return runAsyncTask(project, project.taskQueue::run, "Getting Rust stdlib") {
         progress.isIndeterminate = true
-        when (val download = rustup.downloadStdlib()) {
+        when (val download = rustup.downloadStdlib(project, toolchainName)) {
             is DownloadResult.Ok -> {
                 val lib = StandardLibrary.fromFile(download.value)
                 if (lib == null) {
@@ -568,7 +568,7 @@ private fun fetchCargoWorkspace(
         progress.isIndeterminate = true
         if (!toolchain.looksLikeValidToolchain()) {
             return@runAsyncTask err(
-                "invalid Rust toolchain ${toolchain.presentableLocation}"
+                "invalid Rust toolchain ${toolchain.location}"
             )
         }
         val cargo = toolchain.cargoOrWrapper(projectDirectory)
@@ -608,7 +608,7 @@ private fun fetchRustcInfo(
         progress.isIndeterminate = true
         if (!toolchain.looksLikeValidToolchain()) {
             return@runAsyncTask err(
-                "invalid Rust toolchain ${toolchain.presentableLocation}"
+                "invalid Rust toolchain ${toolchain.location}"
             )
         }
 
