@@ -38,7 +38,7 @@ class CargoConfigurationWizardStep private constructor(
 
     override fun updateDataModel() {
         val data = newProjectPanel.data
-        ConfigurationUpdater.data = data.settings
+        ConfigurationUpdater.sdk = data.sdk
 
         val projectBuilder = context.projectBuilder
         if (projectBuilder is RsModuleBuilder) {
@@ -56,20 +56,18 @@ class CargoConfigurationWizardStep private constructor(
     }
 
     private object ConfigurationUpdater : ModuleConfigurationUpdater() {
-        var data: RustProjectSettingsPanel.Data? = null
+        var sdk: Sdk? = null
 
         override fun update(module: Module, rootModel: ModifiableRootModel) {
-            val data = data
-            if (data != null) {
+            val sdk = sdk
+            if (sdk != null) {
+                rootModel.sdk = sdk
                 module.project.rustSettings.modify {
-                    it.toolchain = data.toolchain
-                    it.explicitPathToStdlib = data.explicitPathToStdlib
+                    it.sdk = sdk
                 }
+            } else {
+                rootModel.inheritSdk()
             }
-            // We don't use SDK, but let's inherit one to reduce the amount of
-            // "SDK not configured" errors
-            // https://github.com/intellij-rust/intellij-rust/issues/1062
-            rootModel.inheritSdk()
 
             val contentEntry = rootModel.contentEntries.singleOrNull()
             if (contentEntry != null) {
