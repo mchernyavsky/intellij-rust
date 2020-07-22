@@ -13,6 +13,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapiext.isUnitTestMode
 import com.intellij.util.io.exists
 import com.intellij.util.text.SemVer
+import org.rust.cargo.CargoConstants.XARGO_MANIFEST_FILE
 import org.rust.openapiext.*
 import java.io.File
 import java.nio.file.Files
@@ -64,7 +65,7 @@ data class RustToolchain(val location: Path) {
     fun rawCargo(): Cargo = Cargo(pathToExecutable(CARGO))
 
     fun cargoOrWrapper(cargoProjectDirectory: Path?): Cargo {
-        val hasXargoToml = cargoProjectDirectory?.resolve(XARGO_TOML)?.let { Files.isRegularFile(it) } == true
+        val hasXargoToml = cargoProjectDirectory?.resolve(XARGO_MANIFEST_FILE)?.let { Files.isRegularFile(it) } == true
         val cargoWrapper = if (hasXargoToml && hasExecutable(XARGO)) XARGO else CARGO
         return Cargo(pathToExecutable(cargoWrapper))
     }
@@ -122,10 +123,6 @@ data class RustToolchain(val location: Path) {
         private const val XARGO = "xargo"
         private const val GRCOV = "grcov"
         private const val EVCXR = "evcxr"
-
-        const val CARGO_TOML = "Cargo.toml"
-        const val CARGO_LOCK = "Cargo.lock"
-        const val XARGO_TOML = "Xargo.toml"
 
         val MIN_SUPPORTED_TOOLCHAIN = SemVer.parseFromText("1.32.0")!!
 
