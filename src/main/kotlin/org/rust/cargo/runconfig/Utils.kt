@@ -31,7 +31,6 @@ import org.rust.stdext.buildList
 fun CargoCommandLine.mergeWithDefault(default: CargoCommandConfiguration): CargoCommandLine =
     copy(
         backtraceMode = default.backtrace,
-        channel = default.channel,
         environmentVariables = default.env,
         allFeatures = default.allFeatures,
         emulateTerminal = default.emulateTerminal

@@ -71,15 +71,6 @@ class CargoTest : RsTestBase() {
         env: RUST_BACKTRACE=short, TERM=ansi
     """)
 
-    fun `test adds nightly channel`() = checkCommandLine(
-        cargo.toColoredCommandLine(project, CargoCommandLine("run", wd, listOf("--release", "--", "foo"), channel = RustChannel.NIGHTLY)), """
-        cmd: /usr/bin/cargo +nightly run --color=always --release -- foo
-        env: RUST_BACKTRACE=short, TERM=ansi
-        """, """
-        cmd: C:/usr/bin/cargo.exe +nightly run --color=always --release -- foo
-        env: RUST_BACKTRACE=short, TERM=ansi
-    """)
-
     @MockRustcVersion("1.36.0")
     fun `test adds --offline option`() = withOfflineMode {
         checkCommandLine(cargo.toColoredCommandLine(project, CargoCommandLine("run", wd, listOf("--release", "--", "foo"))), """

@@ -91,7 +91,6 @@ class CargoCommandConfiguration(
     }
 
     fun setFromCmd(cmd: CargoCommandLine) {
-        channel = cmd.channel
         command = ParametersListUtil.join(cmd.command, *cmd.additionalArguments.toTypedArray())
         allFeatures = cmd.allFeatures
         emulateTerminal = cmd.emulateTerminal

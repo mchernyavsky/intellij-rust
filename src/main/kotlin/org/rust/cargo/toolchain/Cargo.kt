@@ -279,9 +279,6 @@ class Cargo(private val cargoExecutable: Path) {
     private fun toGeneralCommandLine(project: Project, commandLine: CargoCommandLine, colors: Boolean): GeneralCommandLine =
         with(patchArgs(commandLine, colors)) {
             val parameters = buildList<String> {
-                if (channel != RustChannel.DEFAULT) {
-                    add("+$channel")
-                }
                 if (project.rustSettings.useOffline) {
                     val cargoProject = findCargoProject(project, additionalArguments, workingDirectory)
                     val rustcVersion = cargoProject?.rustcInfo?.version?.semver
